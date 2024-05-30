@@ -156,7 +156,6 @@ def save_file(fname, content, dt, dn, folder=None, decode=False, is_private=0, d
 	file_size = check_max_file_size(content)
 	content_hash = get_content_hash(content)
 	content_type = mimetypes.guess_type(fname)[0]
-	fname = get_file_name(fname, content_hash[-6:])
 	file_data = get_file_data_from_hash(content_hash, is_private=is_private)
 	if not file_data:
 		call_hook_method("before_write_file", file_size=file_size)
@@ -175,6 +174,7 @@ def save_file(fname, content, dt, dn, folder=None, decode=False, is_private=0, d
 			"file_size": file_size,
 			"content_hash": content_hash,
 			"is_private": is_private,
+			"file_name": file_data.get("file_name", fname),
 		}
 	)
 
@@ -189,12 +189,9 @@ def save_file(fname, content, dt, dn, folder=None, decode=False, is_private=0, d
 
 
 def get_file_data_from_hash(content_hash, is_private=0):
-	for name in frappe.get_all(
-		"File", {"content_hash": content_hash, "is_private": is_private}, pluck="name"
-	):
-		b = frappe.get_doc("File", name)
-		return {k: b.get(k) for k in frappe.get_hooks()["write_file_keys"]}
-	return False
+	if name := frappe.db.get_value("File", {"content_hash": content_hash, "is_private": is_private}, "name"):
+		f = frappe.get_doc("File", name)
+		return {k: f.get(k) for k in frappe.get_hooks()["write_file_keys"]}
 
 
 def save_file_on_filesystem(fname, content, content_type=None, is_private=0):
@@ -378,21 +375,6 @@ def get_content_hash(content):
 	if isinstance(content, str):
 		content = content.encode()
 	return hashlib.md5(content, usedforsecurity=False).hexdigest()
-
-
-def get_file_name(fname, optional_suffix):
-	# convert to unicode
-	fname = cstr(fname)
-
-	n_records = frappe.get_all("File", {"file_name": fname}, pluck="name")
-	if len(n_records) > 0 or os.path.exists(encode(get_files_path(fname))):
-		f = fname.rsplit(".", 1)
-		if len(f) == 1:
-			partial, extn = f[0], ""
-		else:
-			partial, extn = f[0], "." + f[1]
-		return f"{partial}{optional_suffix}{extn}"
-	return fname
 
 
 @frappe.whitelist()

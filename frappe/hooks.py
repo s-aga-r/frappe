@@ -66,7 +66,7 @@ website_redirects = [
 
 base_template = "templates/base.html"
 
-write_file_keys = ["file_url", "file_name"]
+write_file_keys = ["file_url"]
 
 notification_config = "frappe.core.notifications.get_notification_config"
 
