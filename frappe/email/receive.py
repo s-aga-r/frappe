@@ -493,6 +493,8 @@ class Email:
 	def decode_email(email: bytes | str | None) -> str | None:
 		if not email:
 			return
+
+		raw_email = email if isinstance(email, str) else email.decode("utf-8", "replace")
 		email = frappe.as_unicode(email)
 		try:
 			parts = decode_header(email)
@@ -507,6 +509,17 @@ class Email:
 				decoded += part.decode(encoding, "replace")
 			else:
 				decoded += safe_decode(part)
+
+		# Reject malformed address headers where decoding synthesizes an addr-spec.
+		if decoded and "@" in decoded and "@" not in raw_email:
+			frappe.log_error(
+				title=_("Malformed Address Header"),
+				message=_("Rejected malformed encoded address header with synthesized '@': {0}").format(
+					repr(raw_email)
+				),
+			)
+			return None
+
 		return decoded
 
 	def set_content_and_type(self):
